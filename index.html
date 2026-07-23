@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dō</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2A2418">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dō">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-top">
+      <h1 class="logo"><em>Dō</em></h1>
+      <div class="header-right">
+        <div class="date-pill" id="datePill"></div>
+        <button class="cal-header-btn" id="calToggleBtn" onclick="toggleCalDropdown()">
+          <span>📅</span>
+          <span class="cal-toggle-chevron" id="calChevron">▾</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- READINESS PANEL -->
+  <div class="readiness-strip" id="readinessStrip">
+    <!-- Placeholder state (not connected) -->
+    <div id="readinessPlaceholder" class="readiness-placeholder">
+      <div class="readiness-placeholder-icon">💓</div>
+      <div class="readiness-placeholder-text">
+        <div class="readiness-placeholder-title">Daily Readiness</div>
+        <div class="readiness-placeholder-sub">Connect Fitbit to see your recovery score and get smart task suggestions.</div>
+      </div>
+      <div class="readiness-actions">
+        <button class="readiness-connect-btn" id="fitbitConnectBtn" onclick="fitbitConnect()">Connect Fitbit</button>
+      </div>
+    </div>
+    <!-- Connected state (hidden until auth) -->
+    <div id="readinessData" style="display:none">
+      <div class="readiness-inner">
+        <div class="readiness-ring">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle class="readiness-ring-bg" cx="32" cy="32" r="27"/>
+            <circle class="readiness-ring-fill" id="readinessRingFill" cx="32" cy="32" r="27"
+              stroke-dasharray="169.6" stroke-dashoffset="169.6" stroke="#4A8A6C"/>
+          </svg>
+          <div class="readiness-score" id="readinessScoreNum">–</div>
+        </div>
+        <div class="readiness-body">
+          <div class="readiness-label">Today's Readiness</div>
+          <div class="readiness-status" id="readinessStatusText">Loading…</div>
+          <div class="readiness-metrics" id="readinessMetrics"></div>
+        </div>
+        <div class="readiness-actions">
+          <button class="readiness-connect-btn connected" id="fitbitConnectedBtn" onclick="fitbitConnect()">Fitbit ✓</button>
+          <button class="readiness-refresh-btn" onclick="fitbitFetchData()">↻ Refresh</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROJECT STRIP -->
+  <div class="proj-strip">
+    <div class="proj-strip-header">
+      <span class="proj-strip-title">Projects</span>
+    </div>
+    <div class="proj-bars" id="projStrip">
+      <div class="proj-strip-empty">No projects yet</div>
+    </div>
+  </div>
+
+  <!-- DROPDOWN CALENDAR -->
+  <div class="cal-dropdown" id="calDropdown">
+    <div class="cal-card">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="calPrev2">‹</button>
+        <span class="cal-month-label" id="calMonthLabel"></span>
+        <button class="cal-nav-btn" id="calNext2">›</button>
+      </div>
+      <div class="cal-weekdays" id="calWeekdays"></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+
+    <!-- Schedule & events — full width, pinned under projects -->
+    <div class="day-panel" id="dayPanelWrap">
+      <div class="day-panel-header">
+        <div class="day-panel-date" id="dayPanelDate">Today</div>
+        <div class="day-panel-sub" id="dayPanelSub">Schedule &amp; events</div>
+      </div>
+      <div class="day-panel-body" id="dayPanelBody">
+        <div class="day-empty">Select a day in the calendar to see its schedule</div>
+      </div>
+    </div>
+
+    <!-- Tasks column -->
+    <div class="tasks-col">
+      <div class="category-bar" id="categoryBar"></div>
+
+      <div class="tasks-section" id="dayTasksSection">
+        <div class="section-label" id="dayTasksLabel">Today's Tasks</div>
+        <div class="task-list" id="dayTaskList"></div>
+        <div class="empty" id="dayTasksEmpty" style="display:none">
+          <div class="empty-icon">✦</div>
+          <p>Nothing scheduled for this day.</p>
+        </div>
+      </div>
+
+      <div class="tasks-section" id="allTasksSection" style="margin-top:20px">
+        <div class="section-label">All tasks</div>
+        <div class="task-list" id="allTaskList"></div>
+        <div class="empty" id="allTasksEmpty" style="display:none">
+          <div class="empty-icon">✦</div>
+          <p>No tasks yet — add one with +</p>
+        </div>
+      </div>
+
+      <div class="tasks-section" id="doneSection" style="display:none;margin-top:20px">
+        <div class="section-label">Completed</div>
+        <div class="task-list" id="doneList"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="fab-wrap" id="fabWrap">
+  <div class="fab-menu" id="fabMenu">
+    <button class="fab-menu-item" onclick="fabOpenTaskPanel()">
+      <span class="fmi-icon" style="background:var(--accent2-light);color:var(--accent2)">✓</span>New Task
+    </button>
+    <button class="fab-menu-item" onclick="fabOpenProjectPanel()">
+      <span class="fmi-icon" style="background:var(--accent-light);color:var(--accent)">◈</span>New Project
+    </button>
+    <button class="fab-menu-item" onclick="fabOpenCalPanel()">
+      <span class="fmi-icon" style="background:var(--surface2);color:var(--text-muted)">📅</span>Calendar Entry
+    </button>
+    <button class="fab-menu-item" onclick="fabBackup()">
+      <span class="fmi-icon" style="background:var(--surface2);color:var(--text-muted)">💾</span>Back up data
+    </button>
+    <button class="fab-menu-item" onclick="fabRestore()">
+      <span class="fmi-icon" style="background:var(--surface2);color:var(--text-muted)">📂</span>Restore backup
+    </button>
+  </div>
+  <button class="fab" id="fabBtn" onclick="toggleFab()">+</button>
+  <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="handleImportFile(event)">
+</div>
+<div class="overlay" id="overlay"></div>
+
+<!-- TASK PANEL -->
+<div class="panel" id="taskPanel">
+  <div class="panel-header">
+    <span class="panel-title" id="taskPanelTitle">New Task</span>
+    <button class="panel-close" onclick="closeTaskPanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="field-group">
+      <label class="field-label">Task Name</label>
+      <input class="field-input" id="taskName" type="text" placeholder="What needs doing?" maxlength="80">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Description (optional)</label>
+      <textarea class="field-input" id="taskDesc" rows="2" placeholder="Notes, steps, details…"></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Schedule for date (optional)</label>
+      <input class="field-input" id="taskDate" type="date">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Time slot (optional)</label>
+      <div class="field-row">
+        <div class="field-group">
+          <input class="field-input" id="taskTimeStart" type="time" placeholder="Start">
+        </div>
+        <div class="field-group">
+          <input class="field-input" id="taskTimeEnd" type="time" placeholder="End">
+        </div>
+      </div>
+    </div>
+    <!-- RECURRING SCHEDULE -->
+    <div class="field-group">
+      <label class="field-label">
+        <span>Repeat</span>
+        <label class="recur-toggle-wrap">
+          <input type="checkbox" id="recurEnabled" onchange="toggleRecur()">
+          <span class="recur-toggle-slider"></span>
+        </label>
+      </label>
+      <div id="recurFields" style="display:none">
+        <div class="recur-section">
+          <div class="recur-row-label">On these days</div>
+          <div class="recur-days" id="recurDays">
+            <button class="recur-day-btn" data-day="1">Mon</button>
+            <button class="recur-day-btn" data-day="2">Tue</button>
+            <button class="recur-day-btn" data-day="3">Wed</button>
+            <button class="recur-day-btn" data-day="4">Thu</button>
+            <button class="recur-day-btn" data-day="5">Fri</button>
+            <button class="recur-day-btn" data-day="6">Sat</button>
+            <button class="recur-day-btn" data-day="0">Sun</button>
+          </div>
+        </div>
+        <div class="recur-section" style="margin-top:10px">
+          <div class="recur-row-label">For how long</div>
+          <div class="recur-duration-row">
+            <div class="recur-dur-ctrl">
+              <button class="rep-btn" id="recurWeeksMinus">−</button>
+              <span class="recur-num" id="recurWeeksNum">4</span>
+              <button class="rep-btn" id="recurWeeksPlus">+</button>
+            </div>
+            <span class="recur-dur-label">weeks</span>
+          </div>
+        </div>
+        <div class="recur-preview" id="recurPreview"></div>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Project</label>
+      <div class="project-select-grid" id="taskProjGrid"></div>
+    </div>
+    <div class="field-group" id="readinessThresholdGroup">
+      <label class="field-label">Min. readiness to show task <span style="font-weight:300;text-transform:none;letter-spacing:0;font-size:11px;color:var(--text-muted)">(optional)</span></label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input class="field-input" id="taskReadinessMin" type="range" min="0" max="100" step="5" value="0"
+          style="padding:0;height:32px;accent-color:var(--accent2);flex:1" oninput="updateReadinessSlider()">
+        <span id="taskReadinessMinLabel" style="font-family:'DM Serif Display',serif;font-size:18px;min-width:36px;text-align:right">Off</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:300;margin-top:2px">Task will be flagged if your readiness is below this score.</div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Category</label>
+      <div class="cat-select-grid" id="catSelectGrid"></div>
+      <div style="margin-top:9px">
+        <div class="new-cat-row">
+          <input class="field-input" id="newCatName" type="text" placeholder="New category…" maxlength="24" style="font-size:13px;padding:8px 12px">
+          <button class="btn btn-ghost" style="flex:0;padding:8px 13px;font-size:13px" id="addCatBtn">Add</button>
+        </div>
+        <div class="color-picker" id="colorPicker"></div>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Repetitions / Steps</label>
+      <div class="rep-config">
+        <div class="rep-header">
+          <span style="font-size:13px;color:var(--text-muted);font-weight:300">How many?</span>
+          <div class="rep-count-ctrl">
+            <button class="rep-btn" id="repMinus">−</button>
+            <span class="rep-num" id="repNum">0</span>
+            <button class="rep-btn" id="repPlus">+</button>
+          </div>
+        </div>
+        <div class="rep-dots-preview" id="repDotsPreview"></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-footer" id="taskPanelFooter">
+    <button class="btn btn-ghost" onclick="closeTaskPanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+  </div>
+</div>
+
+<!-- PROJECT PANEL — AI Planner -->
+<div class="panel" id="projectPanel">
+  <div class="panel-header">
+    <span class="panel-title" id="projPanelTitle">New Project</span>
+    <button class="panel-close" onclick="closeProjectPanel()">✕</button>
+  </div>
+
+  <!-- STEP 1: AI Goal Chat -->
+  <div id="projStep1" class="panel-body" style="padding:0;display:flex;flex-direction:column;gap:0;">
+    <!-- Offline warning -->
+    <div id="offlineWarning" class="offline-banner" style="display:none">
+      <span>⚡</span> You're offline — AI planning requires a connection. <a onclick="switchToManual()" style="cursor:pointer;text-decoration:underline">Set up manually instead.</a>
+    </div>
+    <!-- Deadline bar -->
+    <div class="deadline-bar">
+      <span class="deadline-bar-label">🎯 Deadline</span>
+      <input type="date" class="deadline-input" id="projDeadlineInput" onchange="updateDeadlinePill()">
+      <span class="deadline-pill" id="deadlinePill">Optional</span>
+    </div>
+    <!-- Chat thread -->
+    <div class="ai-chat-thread" id="aiChatThread"></div>
+    <!-- Input bar -->
+    <div class="ai-chat-input-wrap">
+      <textarea class="ai-chat-input" id="aiChatInput" placeholder="Describe your goal…" rows="2" onkeydown="aiChatKeydown(event)"></textarea>
+      <button class="ai-chat-send" id="aiChatSend" onclick="aiChatSend()">↑</button>
+    </div>
+    <div style="padding:0 16px 14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="planner-small-btn" onclick="switchToManual()" style="font-size:11px;color:var(--text-muted)">Skip AI — set up manually</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Review & tweak the generated task pool + schedule settings -->
+  <div id="projStep2" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div class="panel-body" style="flex:1;overflow-y:auto">
+      <!-- Summary card from AI -->
+      <div class="ai-summary-card" id="aiSummaryCard"></div>
+
+      <!-- Project meta (name, style, icon, colour) -->
+      <div class="field-group" style="margin-bottom:14px">
+        <label class="field-label">Project name</label>
+        <input class="field-input" id="projName" type="text" placeholder="e.g. 5k Training Plan" maxlength="80">
+      </div>
+      <div class="field-group" style="margin-bottom:14px">
+        <label class="field-label">Style</label>
+        <div class="proj-style-grid" id="projStyleGrid"></div>
+      </div>
+      <div class="field-row" style="margin-bottom:14px">
+        <div class="field-group">
+          <label class="field-label">Icon</label>
+          <div class="emoji-row" id="emojiRow"></div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Colour</label>
+          <div class="color-picker" id="projColorPicker"></div>
+        </div>
+      </div>
+
+      <!-- Goal description (hidden input, filled by AI) -->
+      <input type="hidden" id="projDesc">
+
+      <!-- Deadline (shown if set) -->
+      <div class="field-group" style="margin-bottom:14px" id="step2DeadlineWrap">
+        <label class="field-label">Deadline (optional)</label>
+        <input class="field-input" id="projDeadlineStep2" type="date">
+      </div>
+
+      <!-- Task Pool -->
+      <div class="field-group" style="margin-bottom:14px">
+        <label class="field-label" style="justify-content:space-between">
+          Task Pool
+          <span style="font-size:11px;font-weight:300;color:var(--text-muted);text-transform:none;letter-spacing:0">Adjust ratings below</span>
+        </label>
+        <div id="projTaskPool"></div>
+        <button class="add-task-pool-btn" onclick="addPoolTask()">+ Add task manually</button>
+      </div>
+
+      <!-- Smart Schedule Settings -->
+      <div class="field-group" id="plannerWrap">
+        <label class="field-label">Schedule</label>
+        <div class="planner-box">
+          <div class="planner-row">
+            <span class="planner-row-label">Sessions per week</span>
+            <div class="planner-ctrl">
+              <button class="rep-btn" id="plannerSessionsMinus">−</button>
+              <span class="rep-num" id="plannerSessionsNum">3</span>
+              <button class="rep-btn" id="plannerSessionsPlus">+</button>
+            </div>
+          </div>
+          <div class="planner-row" style="margin-top:10px">
+            <span class="planner-row-label">Weeks</span>
+            <div class="planner-ctrl">
+              <button class="rep-btn" id="plannerWeeksMinus">−</button>
+              <span class="rep-num" id="plannerWeeksNum">6</span>
+              <button class="rep-btn" id="plannerWeeksPlus">+</button>
+            </div>
+          </div>
+          <div class="planner-row" style="margin-top:10px;align-items:flex-start;flex-direction:column;gap:8px">
+            <span class="planner-row-label">Preferred days</span>
+            <div class="recur-days" id="plannerDays" style="width:100%">
+              <button class="recur-day-btn planner-day-btn" data-pday="1">Mon</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="2">Tue</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="3">Wed</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="4">Thu</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="5">Fri</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="6">Sat</button>
+              <button class="recur-day-btn planner-day-btn" data-pday="0">Sun</button>
+            </div>
+          </div>
+          <button class="planner-build-btn" onclick="buildSchedule()">⚡ Build Schedule</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-footer" id="projPanelFooter" style="flex-shrink:0">
+      <button class="btn btn-ghost" onclick="backToChat()">← Back</button>
+      <button class="btn btn-primary" onclick="saveProject()">Save without schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE PREVIEW PANEL (full-screen modal) -->
+<div class="sched-modal" id="schedModal" style="display:none">
+  <div class="sched-modal-inner">
+    <div class="sched-modal-header">
+      <div>
+        <div class="sched-modal-title" id="schedModalTitle">Your Schedule</div>
+        <div class="sched-modal-sub" id="schedModalSub"></div>
+      </div>
+      <button class="panel-close" onclick="closeSchedModal()">✕</button>
+    </div>
+    <div class="sched-modal-body" id="schedModalBody"></div>
+    <div class="sched-modal-footer">
+      <button class="btn btn-ghost" onclick="closeSchedModal()">Back &amp; adjust</button>
+      <button class="btn btn-primary" onclick="commitSchedule()">Confirm &amp; save to calendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR ENTRY PANEL -->
+<div class="panel" id="calPanel">
+  <div class="panel-header">
+    <span class="panel-title" id="calPanelTitle">New Entry</span>
+    <button class="panel-close" onclick="closeCalPanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="field-group">
+      <label class="field-label">Type</label>
+      <div class="event-type-tabs" id="eventTypeTabs">
+        <button class="event-type-tab active" data-etype="event"   onclick="setEventType('event')">Event</button>
+        <button class="event-type-tab"        data-etype="task"    onclick="setEventType('task')">Task</button>
+        <button class="event-type-tab"        data-etype="project" onclick="setEventType('project')">Project Span</button>
+      </div>
+    </div>
+    <!-- EVENT -->
+    <div id="calEventFields">
+      <div class="field-group" style="margin-bottom:13px">
+        <label class="field-label">Title</label>
+        <input class="field-input" id="calEvtTitle" type="text" placeholder="e.g. Team meeting" maxlength="80">
+      </div>
+      <div class="field-group" style="margin-bottom:13px">
+        <label class="field-label">Notes (optional)</label>
+        <textarea class="field-input" id="calEvtNotes" rows="2" placeholder="Agenda, location, link…"></textarea>
+      </div>
+      <div class="field-row" style="margin-bottom:13px">
+        <div class="field-group">
+          <label class="field-label">Date</label>
+          <input class="field-input" id="calEvtDate" type="date">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Colour</label>
+          <div class="color-picker" id="calEvtColorPicker" style="margin-top:5px"></div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Start time</label>
+          <input class="field-input" id="calEvtStart" type="time">
+        </div>
+        <div class="field-group">
+          <label class="field-label">End time</label>
+          <input class="field-input" id="calEvtEnd" type="time">
+        </div>
+      </div>
+    </div>
+    <!-- TASK -->
+    <div id="calTaskFields" style="display:none">
+      <div class="field-group" style="margin-bottom:13px">
+        <label class="field-label">Date</label>
+        <input class="field-input" id="calTaskDate" type="date">
+      </div>
+      <div class="field-group" style="margin-bottom:13px">
+        <label class="field-label">Link an existing task</label>
+        <div class="project-select-grid" id="calTaskGrid"></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Or create a new task</label>
+        <input class="field-input" id="calNewTaskName" type="text" placeholder="New task name…" maxlength="80">
+      </div>
+    </div>
+    <!-- PROJECT SPAN -->
+    <div id="calProjFields" style="display:none">
+      <div class="field-group" style="margin-bottom:13px">
+        <label class="field-label">Project</label>
+        <div class="proj-range-grid" id="calProjGrid"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Start date</label>
+          <input class="field-input" id="calProjStart" type="date">
+        </div>
+        <div class="field-group">
+          <label class="field-label">End date</label>
+          <input class="field-input" id="calProjEnd" type="date">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-footer" id="calPanelFooter">
+    <button class="btn btn-ghost" onclick="closeCalPanel()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveCalEntry()">Save</button>
+  </div>
+</div>
+
+<script src="do-time.js"></script>
+<script src="do-store.js"></script>
+<script src="do-core.js"></script>
+<script src="app.config.js"></script>
+<script src="app.helpers.js"></script>
+<script src="app.render.js"></script>
+<script src="app.panels.js"></script>
+<script src="app.projects.js"></script>
+<script src="app.ai.js"></script>
+<script src="app.wiring.js"></script>
+<script src="app.fitbit.js"></script>
+<script src="app.init.js"></script>
+</body>
+</html>

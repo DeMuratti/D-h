@@ -1,0 +1,12 @@
+{
+  "name": "do-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dō — to-do / project / calendar PWA. Plain HTML/CSS/JS, no build step.",
+  "scripts": {
+    "test": "node tests/run-tests.js"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
